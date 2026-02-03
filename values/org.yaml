@@ -71,4 +71,28 @@ org:
     product: k0renn Platform
   platform: github
   schema_version: 1.0.0
+  default_policies:
+    base_policy: org-defaults
+    change_scope:
+      - Changes must remain within the repo’s evidenced boundaries (frameworks, integrations, and file structure).
+      - Prefer minimal, incremental changes aligned to existing patterns.
+    collaboration:
+      channels:
+        - GitHub
+        - GitHub Actions (if configured)
+      code_review_required: true
+    dependency_baseline:
+      - New dependencies require explicit justification and must be committed with lockfile updates.
+      - Prefer existing libraries/patterns already used in the repository.
+    security_baseline:
+      - Never commit secrets; use environment variables.
+      - Avoid expanding public access; enforce authentication/authorization at server boundaries.
+  description: GitHub-hosted org running multiple TypeScript/JavaScript web applications and related tooling.
+  repo_governance:
+    inheritance_source: DATA.teamContextData
+    primary_source_of_truth: DATA.repoScan
+    rules:
+      - Existing code is intentional.
+      - 'Missing logic is a hard prohibition: do not invent architecture or responsibilities not evidenced in the repo.'
+      - 'Delegation implies non-ownership: integrations (e.g., Clerk, Stripe, Convex) must not be re-implemented as first-party services.'
 additional_context: ""

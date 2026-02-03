@@ -1,25 +1,45 @@
 team:
-    base_policy: org-defaults
-    name: AcademiX team
+  base_policy: org-defaults
+  name: AcademiX team
 team_guidelines:
-    cicd:
-        - Changes must keep next lint and TypeScript strict mode passing.
-        - 'Before merging: ensure Next.js build succeeds and Convex functions typecheck (convex/tsconfig.json strict).'
-        - If GitHub Actions workflows are added, require checks to pass before merge.
-    dependencies:
-        - 'Authentication/identity: use Clerk via @clerk/nextjs; do not add a second auth provider.'
-        - 'Backend/data: use Convex (queries/mutations/actions) for persistence; do not add a second database without explicit decision.'
-        - 'Payments: use Stripe via convex/stripe.ts; do not embed Stripe secret usage in the Next.js client.'
-    general:
-        - 'Follow repository-first governance: implement only what the codebase indicates is needed.'
-        - Keep UI concerns in app/ and components/; keep data access and business rules in convex/.
-        - Prefer server-side enforcement for access control; client-side checks are UX only.
-    naming_formatting:
-        - 'React components: PascalCase exports; filename kebab-case or lowercase under components/.'
-        - 'Convex functions: verb-based exports (list/create/update/remove/add) and explicit validators via convex/values.'
-        - Keep route segments under app/ aligned with Next.js App Router conventions.
-    security:
-        - Require ctx.auth.getUserIdentity() for any Convex mutation/action that changes state or reveals private data.
-        - Verify Stripe webhook signatures; accept events only through Convex http router boundary.
-        - Never commit secrets; use environment variables for NEXT_STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, etc.
+  cicd:
+    - Changes must keep next lint and TypeScript strict mode passing.
+    - 'Before merging: ensure Next.js build succeeds and Convex functions typecheck (convex/tsconfig.json strict).'
+    - If GitHub Actions workflows are added, require checks to pass before merge.
+    - Run lint via next lint (extends next/core-web-vitals).
+    - Ensure TypeScript compile/typecheck passes under strict mode.
+    - Keep Node runtime compatibility aligned with repo requirement (Node 14.x per README.md).
+  dependencies:
+    - 'Authentication/identity: use Clerk via @clerk/nextjs; do not add a second auth provider.'
+    - 'Backend/data: use Convex (queries/mutations/actions) for persistence; do not add a second database without explicit decision.'
+    - 'Payments: use Stripe via convex/stripe.ts; do not embed Stripe secret usage in the Next.js client.'
+    - Use Convex React bindings (convex/react) and generated API imports (@/convex/_generated/api).
+    - Use Clerk Next.js SDK for auth in frontend/middleware (@clerk/nextjs).
+    - Use Stripe SDK only within server-side Convex actions where secrets are required (stripe secret key).
+    - UI primitives should prefer Radix + shadcn patterns already present in components/ui/*.
+    - Do not add a second auth provider; authentication remains Clerk.
+    - Do not add a second database/persistence layer; persistence remains Convex tables/schema unless explicitly approved.
+  general:
+    - 'Follow repository-first governance: implement only what the codebase indicates is needed.'
+    - Keep UI concerns in app/ and components/; keep data access and business rules in convex/.
+    - Prefer server-side enforcement for access control; client-side checks are UX only.
+    - 'Follow Next.js App Router conventions: app/ for routes/layouts, components/ for shared UI, convex/ for backend functions.'
+    - Treat Convex functions as the backend boundary; UI should call generated APIs (api.*) rather than duplicating data logic.
+    - Keep business/data mutations in convex/; avoid embedding write logic in UI components beyond invoking mutations/actions.
+    - Prefer small, composable React components; colocate route-specific components under app/**/_components when appropriate.
+  naming_formatting:
+    - 'React components: PascalCase exports; filename kebab-case or lowercase under components/.'
+    - 'Convex functions: verb-based exports (list/create/update/remove/add) and explicit validators via convex/values.'
+    - Keep route segments under app/ aligned with Next.js App Router conventions.
+    - 'React components: PascalCase exports; files generally kebab-case or lowercase under components/.'
+    - 'Convex functions: export const <name> = query|mutation|action(...) with clear verb naming (list/create/update/remove/add).'
+    - Use TypeScript strict mode; keep types explicit at boundaries (Convex Id/Doc types).
+  security:
+    - Require ctx.auth.getUserIdentity() for any Convex mutation/action that changes state or reveals private data.
+    - Verify Stripe webhook signatures; accept events only through Convex http router boundary.
+    - Never commit secrets; use environment variables for NEXT_STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, etc.
+    - All authenticated operations in convex/ must check ctx.auth.getUserIdentity() before accessing user-scoped data.
+    - Use Convex indexes for user lookups (e.g., users.by_token, users.by_email) and never trust client-provided user identifiers.
+    - Stripe webhooks must validate stripe-signature and STRIPE_WEBHOOK_SECRET before mutating state.
+    - Do not widen public routes in middleware without explicit review; default is protect-all.
 additional_context: ""
