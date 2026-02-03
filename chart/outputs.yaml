@@ -1,15 +1,6 @@
 outputs:
-  service:
-    agents:
-      windsurf:
-        format: md
-        path: .windsurf/rules.md
-      claude:
-        format: md
-        path: .claude/CLAUDE.md
-      copilot:
-        format: md
-        path: .github/copilot-instructions.md
-      cursor:
-        format: md
-        path: .cursor/rules.md
+    service:
+        agents:
+            windsurf:
+                format: md
+                path: .windsurf/rules.md
