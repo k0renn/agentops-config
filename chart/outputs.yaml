@@ -1,6 +1,6 @@
 outputs:
     service:
         agents:
-            cursor:
+            copilot:
                 format: md
-                path: .cursor/rules.md
+                path: .github/copilot-instructions.md
