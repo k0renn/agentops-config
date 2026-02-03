@@ -1,0 +1,88 @@
+name: Sync AgentOps Instructions
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AGENTOPS_CLI_VERSION: "0.1.0"
+  AGENTOPS_CLI_ARCH: "linux_amd64"
+  AGENTOPS_USER_ID: "34f40a47-ee02-4090-a8d2-7269073c7a48"
+  AGENTOPS_CLI_TARBALL: "agentops_${AGENTOPS_CLI_VERSION}_${AGENTOPS_CLI_ARCH}.tar.gz"
+  AGENTOPS_DOWNLOAD_URL: "https://ui.amploi.dev/api/v1/downloads/agentops-cli"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout agentops-configs
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq rsync
+
+      - name: Install agentops CLI
+        run: |
+          curl -L \
+            -H "X-User-Id: ${AGENTOPS_USER_ID}" \
+            -o "${AGENTOPS_CLI_TARBALL}" \
+            "${AGENTOPS_DOWNLOAD_URL}"
+
+          tar -xzf "${AGENTOPS_CLI_TARBALL}"
+          chmod +x agentops
+
+      - name: Render all configs
+        run: |
+          mkdir -p generated
+          chmod +x ./scripts/render-all.sh
+          ./scripts/render-all.sh
+          tree -a ./generated/
+
+      - name: Sync AgentOps instructions to target repos
+        # if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git config --global user.name "agentops-bot"
+          git config --global user.email "agentops-bot@amploi.dev"
+
+          repo_count=$(yq -r '.repos | length' manifest.yaml)
+
+          for ((i=0; i<repo_count; i++)); do
+            NAME=$(yq -r ".repos[$i].name" manifest.yaml)
+            TARGET_REPO=$(yq -r ".repos[$i].target.repo" manifest.yaml)
+            TARGET_PATH=$(yq -r ".repos[$i].target.path // \".\"" manifest.yaml)
+
+            echo "🚀 Syncing $NAME → $TARGET_REPO"
+
+            rm -rf target-repo
+            git clone "https://x-access-token:${GH_TOKEN}@github.com/${TARGET_REPO#git@github.com:}" target-repo
+
+            mkdir -p "target-repo/$TARGET_PATH"
+
+            rsync -av \
+              "generated/$NAME/" \
+              "target-repo/$TARGET_PATH/"
+
+            cd target-repo
+
+            if git status --porcelain | grep .; then
+              git add .
+              git commit -m "chore(agentops): sync instructions"
+              git push
+              echo "✅ Pushed $NAME"
+            else
+              echo "ℹ️ No changes for $NAME"
+            fi
+
+            cd ..
+          done
