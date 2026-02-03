@@ -1,6 +1,12 @@
 outputs:
     service:
         agents:
+            claude:
+                format: md
+                path: .claude/CLAUDE.md
+            copilot:
+                format: md
+                path: .github/copilot-instructions.md
             cursor:
                 format: md
                 path: .cursor/rules.md
