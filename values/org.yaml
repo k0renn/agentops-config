@@ -64,11 +64,38 @@ org:
     source_of_truth:
       primary: DATA.repoScan
       secondary: DATA.teamContextData
+    base_policy: org-defaults
+    engineering_practices:
+      code_review_required: true
+      collaboration_channels:
+        - GitHub
+        - GitHub Actions
+    governance:
+      delegation_implies_non_ownership: true
+      deterministic_rendering: true
+      missing_logic_prohibited: true
+      repository_first: true
+    security_baseline:
+      dependency_sources_allowed:
+        - Public npm registry packages
+        - Official GitHub Actions
+        - Internal repositories (where referenced)
+      env_vars_required_for_secrets: true
+      secrets_in_repo_prohibited: true
   governance_compilation: true
   metadata:
     deployment_model: cloud
     industry: SaaS / Developer Platform
     product: k0renn Platform
+    company_description: A GitHub-hosted portfolio/org running multiple private product and experimentation repositories, primarily TypeScript/JavaScript web apps.
+    primary_stack:
+      languages:
+        - TypeScript
+        - JavaScript
+        - CSS
+      runtime:
+        - Node.js
+    repo_hosting: GitHub
   platform: github
   schema_version: 1.0.0
   default_policies:

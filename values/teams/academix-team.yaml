@@ -1,6 +1,7 @@
 team:
   base_policy: org-defaults
   name: AcademiX team
+  slug: academix-team
 team_guidelines:
   cicd:
     - Changes must keep next lint and TypeScript strict mode passing.
