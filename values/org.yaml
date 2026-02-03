@@ -96,6 +96,11 @@ org:
       runtime:
         - Node.js
     repo_hosting: GitHub
+    collaboration_channels:
+      - name: GitHub
+        purpose: code collaboration, reviews, change history
+      - name: GitHub Actions
+        purpose: CI feedback loops (if configured)
   platform: github
   schema_version: 1.0.0
   default_policies:
@@ -122,4 +127,20 @@ org:
       - Existing code is intentional.
       - 'Missing logic is a hard prohibition: do not invent architecture or responsibilities not evidenced in the repo.'
       - 'Delegation implies non-ownership: integrations (e.g., Clerk, Stripe, Convex) must not be re-implemented as first-party services.'
+  governance:
+    delegation_rules:
+      - 'Delegation implies non-ownership: integrations (Clerk, Stripe, Convex) must not be re-implemented in-repo.'
+      - 'Missing logic is prohibited: only implement capabilities evidenced in repo paths.'
+    dependency_baselines:
+      - New dependencies must be justified and lockfile updates must be committed.
+      - 'Prefer existing stack: Next.js App Router, Convex, Clerk, Stripe, Radix/shadcn UI.'
+    determinism:
+      closed_set_canonical_service_types: true
+      require_path_evidence: true
+    scope_source_of_truth: DATA.repoScan
+    security_baselines:
+      - No secrets in repo; use environment variables only.
+      - All inbound webhooks must be signature verified before state changes.
+      - All state-changing backend operations must enforce authentication at the backend boundary.
+  policy_id: org-defaults
 additional_context: ""

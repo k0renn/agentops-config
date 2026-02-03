@@ -10,6 +10,8 @@ team_guidelines:
     - Run lint via next lint (extends next/core-web-vitals).
     - Ensure TypeScript compile/typecheck passes under strict mode.
     - Keep Node runtime compatibility aligned with repo requirement (Node 14.x per README.md).
+    - Ensure TypeScript compile/typecheck passes under strict mode (root tsconfig.json and convex/tsconfig.json).
+    - 'Before merging: ensure Next.js build succeeds and Convex functions typecheck.'
   dependencies:
     - 'Authentication/identity: use Clerk via @clerk/nextjs; do not add a second auth provider.'
     - 'Backend/data: use Convex (queries/mutations/actions) for persistence; do not add a second database without explicit decision.'
@@ -20,6 +22,11 @@ team_guidelines:
     - UI primitives should prefer Radix + shadcn patterns already present in components/ui/*.
     - Do not add a second auth provider; authentication remains Clerk.
     - Do not add a second database/persistence layer; persistence remains Convex tables/schema unless explicitly approved.
+    - 'Use Convex React bindings and generated API imports: convex/react and @/convex/_generated/api.'
+    - 'Use Clerk Next.js SDK for auth/middleware: @clerk/nextjs.'
+    - Use Stripe SDK only in server-side Convex actions where secrets are required.
+    - UI primitives should prefer Radix + shadcn patterns already present under components/ui/*.
+    - Do not add a second auth provider; authentication remains delegated to Clerk.
   general:
     - 'Follow repository-first governance: implement only what the codebase indicates is needed.'
     - Keep UI concerns in app/ and components/; keep data access and business rules in convex/.
@@ -28,6 +35,11 @@ team_guidelines:
     - Treat Convex functions as the backend boundary; UI should call generated APIs (api.*) rather than duplicating data logic.
     - Keep business/data mutations in convex/; avoid embedding write logic in UI components beyond invoking mutations/actions.
     - Prefer small, composable React components; colocate route-specific components under app/**/_components when appropriate.
+    - 'Follow Next.js App Router conventions: app/ for routes/layouts; components/ for shared UI; convex/ for backend functions.'
+    - Treat Convex functions as the backend boundary; UI should call generated APIs (api.*) rather than duplicating backend logic.
+    - Keep business/data mutations in convex/; UI components should only invoke queries/mutations/actions.
+    - Prefer server-side enforcement for access control; client-side checks are UX-only.
+    - 'Repository-first governance: implement only what is evidenced by existing files and patterns.'
   naming_formatting:
     - 'React components: PascalCase exports; filename kebab-case or lowercase under components/.'
     - 'Convex functions: verb-based exports (list/create/update/remove/add) and explicit validators via convex/values.'
@@ -35,6 +47,8 @@ team_guidelines:
     - 'React components: PascalCase exports; files generally kebab-case or lowercase under components/.'
     - 'Convex functions: export const <name> = query|mutation|action(...) with clear verb naming (list/create/update/remove/add).'
     - Use TypeScript strict mode; keep types explicit at boundaries (Convex Id/Doc types).
+    - 'TypeScript strict mode: keep types explicit at boundaries (Convex Id/Doc types).'
+    - 'React components: PascalCase exports; keep file naming consistent with existing components/ structure.'
   security:
     - Require ctx.auth.getUserIdentity() for any Convex mutation/action that changes state or reveals private data.
     - Verify Stripe webhook signatures; accept events only through Convex http router boundary.
@@ -43,4 +57,5 @@ team_guidelines:
     - Use Convex indexes for user lookups (e.g., users.by_token, users.by_email) and never trust client-provided user identifiers.
     - Stripe webhooks must validate stripe-signature and STRIPE_WEBHOOK_SECRET before mutating state.
     - Do not widen public routes in middleware without explicit review; default is protect-all.
+    - Never commit secrets; use environment variables for NEXT_STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_SUBSCRIPTION_PRICE_ID, NEXT_PUBLIC_* values.
 additional_context: ""
