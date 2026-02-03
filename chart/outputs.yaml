@@ -1,6 +1,6 @@
 outputs:
     service:
         agents:
-            claude:
+            windsurf:
                 format: md
-                path: .claude/CLAUDE.md
+                path: .windsurf/rules.md
