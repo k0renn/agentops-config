@@ -12,6 +12,8 @@ allowed_paths:
   - tailwind.config.ts
   - postcss.config.js
   - .eslintrc.json
+  - components.json
+  - README.md
 canonical_service_type:
   chosen: Backend-for-Frontend (BFF)
 enforcement:
@@ -19,6 +21,10 @@ enforcement:
   - Inbound webhook routes must use stripe-signature header and STRIPE_WEBHOOK_SECRET verification before state changes (convex/http.ts -> internal.stripe.fulfill in convex/stripe.ts).
   - Route access is protected by default via Clerk authMiddleware matcher; changes require explicit review (middleware.ts).
   - Schema/table changes must be reflected only in convex/schema.ts and accessed via generated API bindings.
+  - 'Convex boundary: all mutations/actions must validate inputs with convex/values and enforce auth via ctx.auth.getUserIdentity().'
+  - 'Webhook boundary: only expose routes via convex/http.ts; verify stripe-signature before processing.'
+  - 'Frontend boundary: do not reference server secrets in app/ or components/; use env vars only in server-side Convex actions.'
+  - 'Dependency boundary: new dependencies must be justified; keep lockfile updated and committed.'
 forbidden_responsibilities:
   - evidence:
       - middleware.ts
@@ -35,11 +41,36 @@ forbidden_responsibilities:
       - convex/*.ts
       - package.json
     title: Operating a standalone database or database server administration
+  - evidence:
+      - middleware.ts
+      - providers/convex-client-provider.tsx
+      - package.json
+    title: Owning authentication (password storage, login UI beyond provider widgets, credential verification)
+  - evidence:
+      - providers/convex-client-provider.tsx
+      - components/navbar/index.tsx
+      - package.json
+    title: Owning identity provider user directory and session management
+  - evidence:
+      - convex/stripe.ts
+      - convex/http.ts
+      - package.json
+    title: Owning payment processing and PCI responsibilities outside Stripe (card data capture/storage)
+  - evidence:
+      - convex/schema.ts
+      - package.json
+      - convex/README.md
+    title: Owning core database infrastructure outside Convex (running/operating separate DB servers)
 hard_prohibitions:
   - Do not add custom credential storage, password handling, or session token minting; authentication is delegated to Clerk.
   - Do not store or log Stripe secrets, webhook secrets, or any API keys in the repository; use environment variables only (e.g., NEXT_STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET).
   - Do not bypass Stripe webhook signature verification for subscription fulfillment.
   - Do not implement direct database server management; data persistence is via Convex tables/schema only.
+  - Do not add alternative auth providers or custom credential auth; authentication remains delegated to Clerk.
+  - Do not process or store raw payment card data; payments remain delegated to Stripe.
+  - Do not introduce a second persistence layer (SQL/NoSQL) without explicit governance approval; persistence remains in Convex tables.
+  - Do not add unauthenticated state-changing Convex mutations/actions; all writes require ctx.auth.getUserIdentity().
+  - Do not accept external webhooks without signature verification and strict parsing/bounds.
 owned_responsibilities:
   - evidence:
       - app/layout.tsx
@@ -61,36 +92,80 @@ owned_responsibilities:
       - convex/http.ts
       - app/create/page.tsx
     title: Subscription checkout initiation and Stripe webhook fulfillment handling
+  - evidence:
+      - app/layout.tsx
+      - app/(homepage)/page.tsx
+      - app/[groupId]/page.tsx
+    title: Web application UI routing and page composition (Next.js App Router)
+  - evidence:
+      - app/(homepage)/page.tsx
+      - app/[groupId]/page.tsx
+      - hooks/use-api-mutation.ts
+    title: BFF data access orchestration via Convex client hooks (queries/mutations/actions)
+  - evidence:
+      - convex/schema.ts
+      - convex/posts.ts
+      - convex/groups.ts
+    title: Domain data model, persistence, and business operations implemented as Convex queries/mutations
+  - evidence:
+      - convex/users.ts
+      - convex/comments.ts
+      - convex/groups.ts
+    title: Identity-aware access checks at backend boundary using Convex auth context
+  - evidence:
+      - convex/stripe.ts
+      - app/create/page.tsx
+      - convex/groups.ts
+    title: Payment session initiation for subscriptions and linking billing to group provisioning
+  - evidence:
+      - convex/http.ts
+      - convex/stripe.ts
+    title: Stripe webhook ingestion endpoint and fulfillment handling
 service:
   id: k0renn/AcademiX
   source_of_truth: DATA.repoScan
 team:
-  base_policy: k0renn-default
-  name: AcademiX
+  base_policy: org-defaults
+  name: AcademiX team
 team_guidelines:
   cicd:
     - Run lint via next lint (extends next/core-web-vitals).
     - Ensure TypeScript compile/typecheck passes under strict mode.
     - Keep Node runtime compatibility aligned with repo requirement (documented Node 14.x).
+    - Changes must keep next lint and TypeScript strict mode passing.
+    - 'Before merging: ensure Next.js build succeeds and Convex functions typecheck (convex/tsconfig.json strict).'
+    - If GitHub Actions workflows are added, require checks to pass before merge.
   dependencies:
     - Use Convex React bindings (convex/react) and generated API imports (@/convex/_generated/api).
     - Use Clerk Next.js SDK for auth in frontend/middleware (@clerk/nextjs).
     - Use Stripe SDK only within server-side Convex actions where secrets are required (stripe secret key).
     - UI primitives should prefer Radix + shadcn patterns already present in components/ui/*.
+    - 'Authentication/identity: use Clerk via @clerk/nextjs; do not add a second auth provider.'
+    - 'Backend/data: use Convex (queries/mutations/actions) for persistence; do not add a second database without explicit decision.'
+    - 'Payments: use Stripe via convex/stripe.ts; do not embed Stripe secret usage in the Next.js client.'
   general:
     - 'Follow Next.js App Router conventions: app/ for routes/layouts, components/ for shared UI, convex/ for backend functions.'
     - Treat Convex functions as the backend boundary; UI should call generated APIs (api.*) rather than duplicating data logic.
     - Keep business/data mutations in convex/; avoid embedding write logic in UI components beyond invoking mutations/actions.
     - Prefer small, composable React components; colocate route-specific components under app/**/_components when appropriate.
+    - 'Follow repository-first governance: implement only what the codebase indicates is needed.'
+    - Keep UI concerns in app/ and components/; keep data access and business rules in convex/.
+    - Prefer server-side enforcement for access control; client-side checks are UX only.
   naming_formatting:
     - 'React components: PascalCase exports; files generally kebab-case (e.g., components/about-side.tsx).'
     - 'Convex functions: export const <name> = query|mutation|action(...) with clear verb naming (e.g., users.store, posts.updateContent).'
     - Use TypeScript strict mode; keep types explicit at boundaries (Convex Id/Doc types).
+    - 'React components: PascalCase exports; filename kebab-case or lowercase under components/.'
+    - 'Convex functions: verb-based exports (list/create/update/remove/add) and explicit validators via convex/values.'
+    - Keep route segments under app/ aligned with Next.js App Router conventions.
   security:
     - All authenticated operations in convex/ must check ctx.auth.getUserIdentity() before accessing user-scoped data.
     - Use Convex indexes for user lookups (e.g., users.by_token, users.by_email) and never trust client-provided user identifiers.
     - Stripe webhooks must validate stripe-signature and STRIPE_WEBHOOK_SECRET before mutating state.
     - Do not widen public routes in middleware without explicit review; default is protect-all.
+    - Require ctx.auth.getUserIdentity() for any Convex mutation/action that changes state or reveals private data.
+    - Verify Stripe webhook signatures; accept events only through Convex http router boundary.
+    - Never commit secrets; use environment variables for NEXT_STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, etc.
 additional_context: ""
 agentops_metadata:
   doc_assets:

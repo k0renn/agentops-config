@@ -1,36 +1,74 @@
 metadata:
-    managed_values:
-        - values/org.yaml
-        - values/teams/academix.yaml
-        - values/services/academix.yaml
-    repo: k0renn/AcademiX
+  managed_values:
+    - values/org.yaml
+    - values/teams/academix.yaml
+    - values/services/academix.yaml
+  repo: k0renn/AcademiX
 org:
-    default_stack:
-        auth: Clerk
-        backend: Convex (serverless functions + database)
-        frontend_framework: Next.js (App Router)
-        language: TypeScript
-        payments: Stripe
-    governance_purpose: deterministic-instruction-rendering
-    name: k0renn
-    policy_defaults:
-        cicd_baseline:
-            - Build must pass TypeScript strict type-checking.
-            - Lint must pass (next/core-web-vitals).
-        dependency_baseline:
-            - Prefer official vendor SDKs (Next.js, Convex, Clerk, Stripe).
-            - Avoid introducing new auth/payment providers unless explicitly approved.
-        responsibility_model:
-            rules:
-                - Existing code is intentional; do not assume missing logic.
-                - Delegation to third-parties (Clerk/Convex/Stripe) implies non-ownership of those systems.
-                - Only responsibilities evidenced by repo paths are considered owned.
-        security_baseline:
-            - Protect routes via Clerk middleware where applicable.
-            - Never commit secrets; all secrets must be provided via environment variables.
-            - Validate inputs on Convex functions using convex/values validators.
-            - Verify webhook signatures for inbound webhooks (e.g., Stripe).
+  default_stack:
+    auth: Clerk
+    backend: Convex (serverless functions + database)
+    frontend_framework: Next.js (App Router)
+    language: TypeScript
+    payments: Stripe
+  governance_purpose: deterministic-instruction-rendering
+  name: k0renn
+  policy_defaults:
+    cicd_baseline:
+      - Build must pass TypeScript strict type-checking.
+      - Lint must pass (next/core-web-vitals).
+    dependency_baseline:
+      - Prefer official vendor SDKs (Next.js, Convex, Clerk, Stripe).
+      - Avoid introducing new auth/payment providers unless explicitly approved.
+    responsibility_model:
+      rules:
+        - Existing code is intentional; do not assume missing logic.
+        - Delegation to third-parties (Clerk/Convex/Stripe) implies non-ownership of those systems.
+        - Only responsibilities evidenced by repo paths are considered owned.
+    security_baseline:
+      - Protect routes via Clerk middleware where applicable.
+      - Never commit secrets; all secrets must be provided via environment variables.
+      - Validate inputs on Convex functions using convex/values validators.
+      - Verify webhook signatures for inbound webhooks (e.g., Stripe).
+  source_of_truth:
+    primary: DATA.repoScan
+    secondary: DATA.teamContextData
+  defaults:
+    cicd:
+      guidance:
+        - 'CI should run: lint, typecheck, build (and tests when present).'
+        - PR-based collaboration is required; keep changes small and reviewable.
+    dependencies:
+      allowed_sources:
+        - Public npm registry packages
+        - Official GitHub Actions (if/when CI exists)
+        - Internal repositories (when explicitly referenced)
+      guidance:
+        - Prefer framework-native integrations (Next.js, Convex, Clerk) over bespoke infra.
+        - Pin versions via lockfile; avoid unreviewed dependency additions.
+    naming_formatting:
+      - 'TypeScript/JavaScript: camelCase for functions/vars; PascalCase for React components/types.'
+      - 'Filesystem: kebab-case or lowercase filenames; feature/module grouping under app/ and components/.'
+      - Keep env vars in SCREAMING_SNAKE_CASE; never commit secrets.
+    policies:
+      base_policy: repo-scan-is-source-of-truth
+      principles:
+        - Existing code is intentional; do not invent missing logic.
+        - Delegation to third-party services implies non-ownership of those responsibilities.
+        - 'Security posture: medium; prefer least-privilege and validated inputs.'
+    security:
+      guidance:
+        - Do not handle raw credentials; use managed identity providers (e.g., Clerk) and backend auth context.
+        - Validate and bound untrusted inputs at the boundary (Convex validators, server checks).
+        - Verify webhook signatures for external event ingestion.
     source_of_truth:
-        primary: DATA.repoScan
-        secondary: DATA.teamContextData
+      primary: DATA.repoScan
+      secondary: DATA.teamContextData
+  governance_compilation: true
+  metadata:
+    deployment_model: cloud
+    industry: SaaS / Developer Platform
+    product: k0renn Platform
+  platform: github
+  schema_version: 1.0.0
 additional_context: ""

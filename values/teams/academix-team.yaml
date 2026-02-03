@@ -1,0 +1,25 @@
+team:
+    base_policy: org-defaults
+    name: AcademiX team
+team_guidelines:
+    cicd:
+        - Changes must keep next lint and TypeScript strict mode passing.
+        - 'Before merging: ensure Next.js build succeeds and Convex functions typecheck (convex/tsconfig.json strict).'
+        - If GitHub Actions workflows are added, require checks to pass before merge.
+    dependencies:
+        - 'Authentication/identity: use Clerk via @clerk/nextjs; do not add a second auth provider.'
+        - 'Backend/data: use Convex (queries/mutations/actions) for persistence; do not add a second database without explicit decision.'
+        - 'Payments: use Stripe via convex/stripe.ts; do not embed Stripe secret usage in the Next.js client.'
+    general:
+        - 'Follow repository-first governance: implement only what the codebase indicates is needed.'
+        - Keep UI concerns in app/ and components/; keep data access and business rules in convex/.
+        - Prefer server-side enforcement for access control; client-side checks are UX only.
+    naming_formatting:
+        - 'React components: PascalCase exports; filename kebab-case or lowercase under components/.'
+        - 'Convex functions: verb-based exports (list/create/update/remove/add) and explicit validators via convex/values.'
+        - Keep route segments under app/ aligned with Next.js App Router conventions.
+    security:
+        - Require ctx.auth.getUserIdentity() for any Convex mutation/action that changes state or reveals private data.
+        - Verify Stripe webhook signatures; accept events only through Convex http router boundary.
+        - Never commit secrets; use environment variables for NEXT_STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, etc.
+additional_context: ""
