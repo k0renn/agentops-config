@@ -1,0 +1,100 @@
+allowed_paths:
+  - app/**
+  - components/**
+  - providers/**
+  - hooks/**
+  - lib/**
+  - convex/**
+  - middleware.ts
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - tailwind.config.ts
+  - postcss.config.js
+  - .eslintrc.json
+canonical_service_type:
+  chosen: Backend-for-Frontend (BFF)
+enforcement:
+  - All Convex mutations/actions that require a user must call ctx.auth.getUserIdentity() and fail if absent (pattern in convex/users.ts, convex/groups.ts, convex/posts.ts).
+  - Inbound webhook routes must use stripe-signature header and STRIPE_WEBHOOK_SECRET verification before state changes (convex/http.ts -> internal.stripe.fulfill in convex/stripe.ts).
+  - Route access is protected by default via Clerk authMiddleware matcher; changes require explicit review (middleware.ts).
+  - Schema/table changes must be reflected only in convex/schema.ts and accessed via generated API bindings.
+forbidden_responsibilities:
+  - evidence:
+      - middleware.ts
+      - providers/convex-client-provider.tsx
+      - convex/auth.config.ts
+    title: Owning identity provider implementation (user auth, MFA, session issuance)
+  - evidence:
+      - convex/stripe.ts
+      - convex/http.ts
+      - app/create/page.tsx
+    title: Owning payment processor or card vault (PCI storage/processing)
+  - evidence:
+      - convex/schema.ts
+      - convex/*.ts
+      - package.json
+    title: Operating a standalone database or database server administration
+hard_prohibitions:
+  - Do not add custom credential storage, password handling, or session token minting; authentication is delegated to Clerk.
+  - Do not store or log Stripe secrets, webhook secrets, or any API keys in the repository; use environment variables only (e.g., NEXT_STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET).
+  - Do not bypass Stripe webhook signature verification for subscription fulfillment.
+  - Do not implement direct database server management; data persistence is via Convex tables/schema only.
+owned_responsibilities:
+  - evidence:
+      - app/layout.tsx
+      - app/(homepage)/page.tsx
+      - app/[groupId]/page.tsx
+    title: Next.js application routing, layouts, and UI rendering
+  - evidence:
+      - convex/schema.ts
+      - convex/groups.ts
+      - convex/posts.ts
+    title: Backend data model and business operations via Convex queries/mutations
+  - evidence:
+      - middleware.ts
+      - providers/convex-client-provider.tsx
+      - convex/auth.config.ts
+    title: Authentication integration and route protection using Clerk
+  - evidence:
+      - convex/stripe.ts
+      - convex/http.ts
+      - app/create/page.tsx
+    title: Subscription checkout initiation and Stripe webhook fulfillment handling
+service:
+  id: k0renn/AcademiX
+  source_of_truth: DATA.repoScan
+team:
+  base_policy: k0renn-default
+  name: AcademiX
+team_guidelines:
+  cicd:
+    - Run lint via next lint (extends next/core-web-vitals).
+    - Ensure TypeScript compile/typecheck passes under strict mode.
+    - Keep Node runtime compatibility aligned with repo requirement (documented Node 14.x).
+  dependencies:
+    - Use Convex React bindings (convex/react) and generated API imports (@/convex/_generated/api).
+    - Use Clerk Next.js SDK for auth in frontend/middleware (@clerk/nextjs).
+    - Use Stripe SDK only within server-side Convex actions where secrets are required (stripe secret key).
+    - UI primitives should prefer Radix + shadcn patterns already present in components/ui/*.
+  general:
+    - 'Follow Next.js App Router conventions: app/ for routes/layouts, components/ for shared UI, convex/ for backend functions.'
+    - Treat Convex functions as the backend boundary; UI should call generated APIs (api.*) rather than duplicating data logic.
+    - Keep business/data mutations in convex/; avoid embedding write logic in UI components beyond invoking mutations/actions.
+    - Prefer small, composable React components; colocate route-specific components under app/**/_components when appropriate.
+  naming_formatting:
+    - 'React components: PascalCase exports; files generally kebab-case (e.g., components/about-side.tsx).'
+    - 'Convex functions: export const <name> = query|mutation|action(...) with clear verb naming (e.g., users.store, posts.updateContent).'
+    - Use TypeScript strict mode; keep types explicit at boundaries (Convex Id/Doc types).
+  security:
+    - All authenticated operations in convex/ must check ctx.auth.getUserIdentity() before accessing user-scoped data.
+    - Use Convex indexes for user lookups (e.g., users.by_token, users.by_email) and never trust client-provided user identifiers.
+    - Stripe webhooks must validate stripe-signature and STRIPE_WEBHOOK_SECRET before mutating state.
+    - Do not widen public routes in middleware without explicit review; default is protect-all.
+additional_context: ""
+agentops_metadata:
+  doc_assets:
+    pdf: 0
+    doc: 0
+    text: 2
+  doc_assets_note: This project includes documentation assets in the repo (pdf=0, doc/docx=0, text=2). Consider them when relevant.

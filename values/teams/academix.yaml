@@ -1,0 +1,28 @@
+team:
+    base_policy: k0renn-default
+    name: AcademiX
+team_guidelines:
+    cicd:
+        - Run lint via next lint (extends next/core-web-vitals).
+        - Ensure TypeScript compile/typecheck passes under strict mode.
+        - Keep Node runtime compatibility aligned with repo requirement (documented Node 14.x).
+    dependencies:
+        - Use Convex React bindings (convex/react) and generated API imports (@/convex/_generated/api).
+        - Use Clerk Next.js SDK for auth in frontend/middleware (@clerk/nextjs).
+        - Use Stripe SDK only within server-side Convex actions where secrets are required (stripe secret key).
+        - UI primitives should prefer Radix + shadcn patterns already present in components/ui/*.
+    general:
+        - 'Follow Next.js App Router conventions: app/ for routes/layouts, components/ for shared UI, convex/ for backend functions.'
+        - Treat Convex functions as the backend boundary; UI should call generated APIs (api.*) rather than duplicating data logic.
+        - Keep business/data mutations in convex/; avoid embedding write logic in UI components beyond invoking mutations/actions.
+        - Prefer small, composable React components; colocate route-specific components under app/**/_components when appropriate.
+    naming_formatting:
+        - 'React components: PascalCase exports; files generally kebab-case (e.g., components/about-side.tsx).'
+        - 'Convex functions: export const <name> = query|mutation|action(...) with clear verb naming (e.g., users.store, posts.updateContent).'
+        - Use TypeScript strict mode; keep types explicit at boundaries (Convex Id/Doc types).
+    security:
+        - All authenticated operations in convex/ must check ctx.auth.getUserIdentity() before accessing user-scoped data.
+        - Use Convex indexes for user lookups (e.g., users.by_token, users.by_email) and never trust client-provided user identifiers.
+        - Stripe webhooks must validate stripe-signature and STRIPE_WEBHOOK_SECRET before mutating state.
+        - Do not widen public routes in middleware without explicit review; default is protect-all.
+additional_context: ""

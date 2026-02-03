@@ -1,0 +1,36 @@
+metadata:
+    managed_values:
+        - values/org.yaml
+        - values/teams/academix.yaml
+        - values/services/academix.yaml
+    repo: k0renn/AcademiX
+org:
+    default_stack:
+        auth: Clerk
+        backend: Convex (serverless functions + database)
+        frontend_framework: Next.js (App Router)
+        language: TypeScript
+        payments: Stripe
+    governance_purpose: deterministic-instruction-rendering
+    name: k0renn
+    policy_defaults:
+        cicd_baseline:
+            - Build must pass TypeScript strict type-checking.
+            - Lint must pass (next/core-web-vitals).
+        dependency_baseline:
+            - Prefer official vendor SDKs (Next.js, Convex, Clerk, Stripe).
+            - Avoid introducing new auth/payment providers unless explicitly approved.
+        responsibility_model:
+            rules:
+                - Existing code is intentional; do not assume missing logic.
+                - Delegation to third-parties (Clerk/Convex/Stripe) implies non-ownership of those systems.
+                - Only responsibilities evidenced by repo paths are considered owned.
+        security_baseline:
+            - Protect routes via Clerk middleware where applicable.
+            - Never commit secrets; all secrets must be provided via environment variables.
+            - Validate inputs on Convex functions using convex/values validators.
+            - Verify webhook signatures for inbound webhooks (e.g., Stripe).
+    source_of_truth:
+        primary: DATA.repoScan
+        secondary: DATA.teamContextData
+additional_context: ""
