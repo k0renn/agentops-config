@@ -1,6 +1,6 @@
 outputs:
     service:
         agents:
-            copilot:
+            windsurf:
                 format: md
-                path: .github/copilot-instructions.md
+                path: .windsurf/rules.md
