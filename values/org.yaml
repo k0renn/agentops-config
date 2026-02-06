@@ -143,4 +143,48 @@ org:
       - All inbound webhooks must be signature verified before state changes.
       - All state-changing backend operations must enforce authentication at the backend boundary.
   policy_id: org-defaults
+  governance_mode: deterministic
 additional_context: ""
+defaults:
+  base_policy: org-defaults
+  repo_collaboration:
+    code_review_required: true
+    primary_channels:
+      - GitHub
+      - GitHub Actions
+  security_baseline:
+    dependency_sources_allowed:
+      - Public npm registry packages
+      - Official GitHub Actions
+      - Internal repositories (where referenced)
+    secrets_management:
+      rules:
+        - Never commit secrets; use environment variables
+        - Do not log secrets
+  tech_stack_expectations:
+    languages:
+      - TypeScript
+      - JavaScript
+      - CSS
+    runtimes:
+      - Node.js
+policy_library:
+  org-defaults:
+    cicd:
+      - Keep lint/build/typecheck passing
+      - If workflows exist, require checks to pass before merge
+    dependencies:
+      - New dependencies must be justified and kept minimal
+      - Update and commit lockfile when dependencies change
+    general:
+      - 'Repository-first governance: implement only what is evidenced in the repo'
+      - Existing code is intentional; do not delete/replace patterns without evidence
+      - Prefer small, reviewable changes
+    intent: Org-wide baseline governance for repositories
+    naming_formatting:
+      - 'TypeScript/JavaScript: camelCase symbols; PascalCase components/types'
+      - 'Filenames: kebab-case or lowercase for modules/assets'
+      - Prefer consistent formatting compatible with common TS toolchains
+    security:
+      - Do not introduce credential storage or custom auth unless explicitly governed
+      - Validate external inputs at service boundaries
