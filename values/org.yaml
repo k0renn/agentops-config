@@ -1,0 +1,36 @@
+org:
+    defaults:
+        base_policy: org-defaults
+        change_control:
+            allowed_collaboration_channels:
+                - GitHub
+                - GitHub Actions
+            requires_code_review: true
+        formatting:
+            filenames: kebab-case or lowercase
+            typescript:
+                component_naming: PascalCase
+                strict: true
+                symbol_naming: camelCase
+        security:
+            dependency_policy:
+                allowed_sources:
+                    - Public npm registry packages
+                    - Official GitHub Actions
+                    - Internal repositories (where referenced)
+            secrets_policy:
+                - Never commit secrets. Use environment variables.
+    governance:
+        compilation_task: true
+        primary_source_of_truth: DATA.repoScan
+        rules:
+            - Existing code is intentional.
+            - Missing logic is prohibited.
+            - Delegation implies non-ownership.
+        secondary_context_source: DATA.teamContextData
+    metadata:
+        default_language: TypeScript
+        repository_host: GitHub
+    name: k0renn
+    schema_version: 1.0.0
+additional_context: ""
