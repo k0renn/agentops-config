@@ -1,36 +1,68 @@
 org:
-    defaults:
-        base_policy: org-defaults
-        change_control:
-            allowed_collaboration_channels:
-                - GitHub
-                - GitHub Actions
-            requires_code_review: true
-        formatting:
-            filenames: kebab-case or lowercase
-            typescript:
-                component_naming: PascalCase
-                strict: true
-                symbol_naming: camelCase
-        security:
-            dependency_policy:
-                allowed_sources:
-                    - Public npm registry packages
-                    - Official GitHub Actions
-                    - Internal repositories (where referenced)
-            secrets_policy:
-                - Never commit secrets. Use environment variables.
-    governance:
-        compilation_task: true
-        primary_source_of_truth: DATA.repoScan
-        rules:
-            - Existing code is intentional.
-            - Missing logic is prohibited.
-            - Delegation implies non-ownership.
-        secondary_context_source: DATA.teamContextData
-    metadata:
-        default_language: TypeScript
-        repository_host: GitHub
-    name: k0renn
-    schema_version: 1.0.0
+  defaults:
+    base_policy: org-defaults
+    change_control:
+      allowed_collaboration_channels:
+        - GitHub
+        - GitHub Actions
+      requires_code_review: true
+    formatting:
+      filenames: kebab-case or lowercase
+      typescript:
+        component_naming: PascalCase
+        strict: true
+        symbol_naming: camelCase
+    security:
+      dependency_policy:
+        allowed_sources:
+          - Public npm registry packages
+          - Official GitHub Actions
+          - Internal repositories (where referenced)
+      secrets_policy:
+        - Never commit secrets. Use environment variables.
+      identity:
+        custom_password_or_session_minting: false
+      payments:
+        store_or_process_card_data: false
+      secrets:
+        allow_in_repo: false
+        require_env_vars_for_secrets: true
+    change_scope:
+      require_evidence_for_responsibilities: true
+      responsibility_evidence_paths_required: true
+    cicd:
+      required_checks:
+        - next lint
+        - next build
+        - typescript strict typecheck
+    dependency_policy:
+      allow_new_dependencies: only_with_justification
+      require_lockfile_update_on_dep_change: true
+  governance:
+    compilation_task: true
+    primary_source_of_truth: DATA.repoScan
+    rules:
+      - Existing code is intentional.
+      - Missing logic is prohibited.
+      - Delegation implies non-ownership.
+    secondary_context_source: DATA.teamContextData
+    principles:
+      - DATA.repoScan is the only primary source of truth for architecture and scope.
+      - Existing code is intentional; align changes to what exists.
+      - Missing logic is prohibited; do not invent new subsystems or features.
+      - Delegation implies non-ownership; integrations do not become owned responsibilities.
+  metadata:
+    default_language: TypeScript
+    repository_host: GitHub
+  name: k0renn
+  schema_version: 1.0.0
+  source_of_truth: DATA.repoScan
 additional_context: ""
+metadata:
+  collaboration_channels:
+    - active_hours: Async
+      name: GitHub
+      purpose: Code collaboration, reviews, and change history
+    - active_hours: 24/7 (CI-based)
+      name: GitHub Actions
+      purpose: Build/test automation and CI feedback (if configured)

@@ -1,15 +1,21 @@
 outputs:
-    service:
-        agents:
-            claude:
-                format: md
-                path: .claude/CLAUDE.md
-            copilot:
-                format: md
-                path: .github/copilot-instructions.md
-            cursor:
-                format: md
-                path: .cursor/rules.md
-            windsurf:
-                format: md
-                path: .windsurf/rules.md
+  service:
+    agents:
+      claude:
+        format: md
+        path: .claude/CLAUDE.md
+      copilot:
+        format: md
+        path: .github/copilot-instructions.md
+      cursor:
+        format: md
+        path: .cursor/rules.md
+      windsurf:
+        format: md
+        path: .windsurf/rules.md
+      service_skill:
+        format: md
+        path: skilld/service-contract/SKILL.md
+      skills:
+        format: yaml
+        path: skill.yaml
