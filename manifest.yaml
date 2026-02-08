@@ -1,0 +1,7 @@
+org: k0renn
+repos:
+    - name: AcademiX
+      team: academix-team
+      service: academix
+      target:
+        repo: git@github.com:k0renn/AcademiX.git
