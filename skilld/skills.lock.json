@@ -1,0 +1,8 @@
+{
+  "queries": {
+    "typescript": {
+      "source": "wshobson/agents",
+      "skill": "typescript-advanced-types"
+    }
+  }
+}
