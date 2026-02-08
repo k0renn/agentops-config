@@ -1,0 +1,319 @@
+name: Sync AgentOps Instructions
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'skilld/**'
+  workflow_dispatch:
+
+concurrency:
+  group: agentops-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AGENTOPS_CLI_VERSION: "0.1.0"
+  AGENTOPS_CLI_ARCH: "linux_amd64"
+  AGENTOPS_USER_ID: "34f40a47-ee02-4090-a8d2-7269073c7a48"
+  AGENTOPS_CLI_TARBALL: "agentops_${AGENTOPS_CLI_VERSION}_${AGENTOPS_CLI_ARCH}.tar.gz"
+  AGENTOPS_DOWNLOAD_URL: "https://ui.amploi.dev/api/v1/downloads/agentops-cli"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout agentops-configs
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq rsync
+
+          if ! command -v yq >/dev/null 2>&1; then
+            sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64"
+            sudo chmod +x /usr/local/bin/yq
+          fi
+
+      - name: Install agentops CLI
+        run: |
+          curl -L \
+            -H "X-User-Id: ${AGENTOPS_USER_ID}" \
+            -o "${AGENTOPS_CLI_TARBALL}" \
+            "${AGENTOPS_DOWNLOAD_URL}"
+
+          tar -xzf "${AGENTOPS_CLI_TARBALL}"
+          chmod +x agentops
+
+      - name: Render all configs
+        run: |
+          mkdir -p generated
+          chmod +x ./scripts/render-all.sh
+          ./scripts/render-all.sh
+          tree -a ./generated/
+
+      - name: Cache skills into config repo
+        run: |
+          set -euo pipefail
+
+          git config --global user.name "agentops-bot"
+          git config --global user.email "agentops-bot@amploi.dev"
+
+          mkdir -p skilld
+
+          LOCK_FILE="skilld/skills.lock.json"
+          if [ ! -f "$LOCK_FILE" ]; then
+            echo '{"queries":{}}' > "$LOCK_FILE"
+          fi
+
+          # Collect unique queries from rendered skill.yaml files.
+          queries=$(find ./generated -maxdepth 2 -type f -name 'skill.yaml' -print0 \
+            | xargs -0 -I{} yq -r '.install[]?.query // ""' {} \
+            | sed '/^$/d' \
+            | sort -u)
+
+          while IFS= read -r q; do
+            if [ -z "$q" ]; then
+              continue
+            fi
+            cached=$(jq -r --arg q "$q" '.queries[$q].skill // ""' "$LOCK_FILE")
+            if [ -n "$cached" ]; then
+              echo "✅ Skill already cached for query=$q -> $cached"
+              continue
+            fi
+
+            echo "🔎 Resolving query=$q"
+            # NOTE: skills find may write its interactive output to stderr; capture both streams.
+            find_output=$(npx -y skills find "$q" 2>&1 || true)
+            # Strip ANSI escape sequences that may appear in CI output and normalize newlines.
+            find_output=$(printf "%s" "$find_output" | tr -d '\r' | sed -E 's/\x1B\[[0-9;]*[mK]//g')
+
+            # Mimic manual flow: pick the FIRST result line shown under "Search skills:".
+            # Example line:
+            #   > typescript-advanced-types wshobson/agents
+            first_pick=$(printf "%s\n" "$find_output" \
+              | awk '
+                BEGIN {in_section=0}
+                /^Search skills:/ {in_section=1; next}
+                in_section==1 && $1==">" {print $3"@"$2; exit}
+                in_section==1 && $1 ~ /^>[[:space:]]*/ {gsub(/^>/, "", $1); print $2"@"$1; exit}
+              ' || true)
+
+            candidates=""
+            if [ -n "$first_pick" ]; then
+              candidates="$first_pick"
+            else
+              # Fallback: parse any lines that look like "skill owner/repo" (e.g. if the CLI
+              # output format differs slightly in CI).
+              candidates=$(printf "%s" "$find_output" \
+                | grep -E '^[[:space:]]*[> ]*[A-Za-z0-9_.-]+[[:space:]]+[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+[[:space:]]*$' \
+                | sed -E 's/^[[:space:]]*>[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//' \
+                | head -n 10 \
+                | awk '{print $2"@"$1}' || true)
+            fi
+
+            if [ -z "$candidates" ]; then
+              # Final fallback: parse owner/repo@skill occurrences, ignoring placeholder examples.
+              candidates=$(printf "%s" "$find_output" \
+                | grep -Eo '[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[-A-Za-z0-9_.]+' \
+                | grep -v '^owner/repo@skill$' \
+                | head -n 10 || true)
+            fi
+
+            if [ -z "$candidates" ]; then
+              echo "⚠️ No skills match found for query=$q"
+              echo "---- skills find output (first 200 lines) ----"
+              printf "%s" "$find_output" | head -n 200 || true
+              echo "--------------------------------------------"
+              continue
+            fi
+
+            # Try candidates in order until one successfully installs.
+            src=""
+            skill=""
+            while IFS= read -r cand; do
+              if [ -z "$cand" ]; then
+                continue
+              fi
+              if [ "$cand" = "owner/repo@skill" ]; then
+                continue
+              fi
+
+              try_src=${cand%@*}
+              try_skill=${cand#*@}
+              if [ -z "$try_src" ] || [ -z "$try_skill" ]; then
+                continue
+              fi
+              if [ "$try_src" = "owner/repo" ] && [ "$try_skill" = "skill" ]; then
+                continue
+              fi
+
+              # Skip repos we cannot access (e.g. private) to avoid auth failures.
+              code=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/$try_src" || true)
+              if [ "$code" != "200" ]; then
+                echo "⚠️ Skipping non-public or missing repo: $try_src (http=$code)"
+                continue
+              fi
+
+              echo "➡️  Trying $try_skill from $try_src"
+
+              rm -rf .skill-install
+              mkdir -p .skill-install
+
+              set +e
+              (cd .skill-install && npx -y skills add "$try_src" --skill "$try_skill" -a codex -y)
+              rc=$?
+              set -e
+
+              if [ "$rc" -ne 0 ]; then
+                echo "⚠️ Failed to install $try_skill from $try_src"
+                continue
+              fi
+
+              SKILL_SRC_DIR=""
+              if [ -d ".skill-install/codex/skills/$try_skill" ]; then
+                SKILL_SRC_DIR=".skill-install/codex/skills/$try_skill"
+              elif [ -d ".skill-install/.agents/skills/$try_skill" ]; then
+                SKILL_SRC_DIR=".skill-install/.agents/skills/$try_skill"
+              elif [ -d ".skill-install/.agents/skills/${try_skill}" ]; then
+                SKILL_SRC_DIR=".skill-install/.agents/skills/${try_skill}"
+              fi
+              if [ -z "$SKILL_SRC_DIR" ]; then
+                echo "⚠️ Installed skill folder not found for $try_skill"
+                echo "ℹ️ Debug: listing .skill-install (depth=4)"
+                find .skill-install -maxdepth 4 -type d | head -n 200 || true
+                continue
+              fi
+
+              src="$try_src"
+              skill="$try_skill"
+              INSTALLED_SKILL_DIR="$SKILL_SRC_DIR"
+              break
+            done <<< "$candidates"
+
+            if [ -z "$src" ] || [ -z "$skill" ]; then
+              echo "⚠️ No installable skills found for query=$q"
+              continue
+            fi
+
+            echo "✅ Resolved query=$q -> $skill from $src"
+
+            mkdir -p "skilld/$skill"
+            rsync -a --delete --copy-links \
+              "$INSTALLED_SKILL_DIR/" \
+              "skilld/$skill/"
+
+            jq --arg q "$q" --arg s "$src" --arg k "$skill" \
+              '.queries[$q] = {source: $s, skill: $k}' \
+              "$LOCK_FILE" > "$LOCK_FILE.tmp" && mv "$LOCK_FILE.tmp" "$LOCK_FILE"
+          done <<< "$queries"
+
+          rm -rf .skill-install
+
+          # Commit only the skills cache (ignore other working-tree changes from tooling downloads).
+          git add skilld
+          if git diff --cached --quiet; then
+            echo "ℹ️ No skill cache changes"
+          else
+            git commit -m "chore(agentops): cache skills"
+            # Avoid non-fast-forward failures when multiple workflow runs push to main.
+            for attempt in 1 2 3; do
+              git pull --rebase || true
+              if git push; then
+                break
+              fi
+              sleep 2
+            done
+          fi
+
+      - name: Sync AgentOps instructions to target repos
+        # if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git config --global user.name "agentops-bot"
+          git config --global user.email "agentops-bot@amploi.dev"
+
+          repo_count=$(yq -r '.repos | length' manifest.yaml)
+
+          for ((i=0; i<repo_count; i++)); do
+            NAME=$(yq -r ".repos[$i].name" manifest.yaml)
+            TARGET_REPO=$(yq -r ".repos[$i].target.repo" manifest.yaml)
+            TARGET_PATH=$(yq -r ".repos[$i].target.path // \".\"" manifest.yaml)
+
+            echo "🚀 Syncing $NAME → $TARGET_REPO"
+
+            rm -rf target-repo
+            git clone "https://x-access-token:${GH_TOKEN}@github.com/${TARGET_REPO#git@github.com:}" target-repo
+
+            mkdir -p "target-repo/$TARGET_PATH"
+
+            rsync -av \
+              "generated/$NAME/" \
+              "target-repo/$TARGET_PATH/"
+
+            # Sync only the required cached skills into the target repo.
+            # NOTE: Do NOT delete target-repo/$TARGET_PATH/skilld entirely because it also
+            # contains per-repo generated skills like skilld/service-contract.
+            SKILLS_FILE="target-repo/$TARGET_PATH/skill.yaml"
+            SKILLS_LOCK="skilld/skills.lock.json"
+            if [ -f "$SKILLS_FILE" ] && [ -f "$SKILLS_LOCK" ]; then
+              mkdir -p "target-repo/$TARGET_PATH/skilld"
+
+              # Copy lock file for traceability/debugging.
+              cp "$SKILLS_LOCK" "target-repo/$TARGET_PATH/skilld/skills.lock.json" || true
+
+              # Resolve queries -> skill directory names using the lock file.
+              desired_skills=$(yq -r '.install[]?.query // ""' "$SKILLS_FILE" \
+                | sed '/^$/d' \
+                | while read -r q; do
+                    jq -r --arg q "$q" '.queries[$q].skill // ""' "$SKILLS_LOCK";
+                  done \
+                | sed '/^$/d' \
+                | sort -u)
+
+              # Remove stale cached skills from the target repo, but keep generated service-contract.
+              for d in "target-repo/$TARGET_PATH/skilld"/*; do
+                if [ ! -d "$d" ]; then
+                  continue
+                fi
+                base=$(basename "$d")
+                if [ "$base" = "service-contract" ]; then
+                  continue
+                fi
+                if echo "$desired_skills" | grep -qx "$base"; then
+                  continue
+                fi
+                rm -rf "$d"
+              done
+
+              # Copy desired cached skills into the target repo.
+              for s in $desired_skills; do
+                if [ -d "skilld/$s" ]; then
+                  mkdir -p "target-repo/$TARGET_PATH/skilld/$s"
+                  rsync -a --delete --copy-links \
+                    "skilld/$s/" \
+                    "target-repo/$TARGET_PATH/skilld/$s/"
+                fi
+              done
+            fi
+
+            cd target-repo
+
+            if git status --porcelain | grep .; then
+              git add .
+              git commit -m "chore(agentops): sync instructions"
+              git push
+              echo "✅ Pushed $NAME"
+            else
+              echo "ℹ️ No changes for $NAME"
+            fi
+
+            cd ..
+          done
